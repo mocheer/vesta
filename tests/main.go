@@ -7,10 +7,9 @@ import (
 )
 
 func main() {
-	fmt.Println(vesta.New().GetBytes("1+1"))
-	fmt.Println(vesta.New().GetString("'hello world '+ 'vesta'"))
-	fmt.Println(string(vesta.New().GetBytes("({a:1})")))
-	fmt.Println(vesta.New().Nav("https://www.baidu.com").GetString("document.title"))
-	//
-	fmt.Println(vesta.New().GetModuleString("module.exports = true"))
+	fmt.Println(vesta.New().GetValue("1+1"))
+	fmt.Println(vesta.New().GetValue("'hello world '+ 'vesta'"))
+	fmt.Println(vesta.New().GetValue("true"))
+	fmt.Println(vesta.New().GetValue("({a:1})"))
+	fmt.Println(vesta.New().Nav("https://www.baidu.com").GetValue("document.title"))
 }

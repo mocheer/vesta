@@ -3,7 +3,9 @@ package vesta
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/mocheer/pluto/img"
 )
@@ -40,6 +42,11 @@ func (v *vesta) Nav(url string) *vesta {
 }
 
 // WaitVisible
+func (v *vesta) Wait(d time.Duration) *vesta {
+	return v.AddTask(chromedp.Sleep(d))
+}
+
+// WaitVisible
 func (v *vesta) WaitID(id string) *vesta {
 	return v.AddTask(chromedp.WaitVisible(id, chromedp.ByID))
 }
@@ -52,19 +59,16 @@ func (v *vesta) WaitQuery(id string) *vesta {
 // Eval
 func (v *vesta) Eval(jsScript string, res interface{}) *vesta {
 	// res 会获取最后一个表达式的值，可以用分号，逗号正常的编写复杂的js脚本，只要最后一个表达式是最后要获取的值就可以了。
-	// 好像是支持Promise的，待测试
-	return v.AddTask(chromedp.Evaluate(jsScript, res))
+	action := chromedp.Evaluate(jsScript, res, func(p *runtime.EvaluateParams) *runtime.EvaluateParams {
+		// 支持promise
+		return p.WithAwaitPromise(true)
+	})
+	return v.AddTask(action)
 }
 
 // EvalModule 支持CommonJS的模块化支持，获取模块抛出的对象
 func (v *vesta) EvalModule(jsScript string, res interface{}) *vesta {
 	jsScript = fmt.Sprintf(`const module={};%s;module.exports`, jsScript)
-	return v.Eval(jsScript, res)
-}
-
-// EvalModuleString 支持CommonJS的模块化支持，获取模块抛出的对象并强制转成string类型
-func (v *vesta) EvalModuleString(jsScript string, res interface{}) *vesta {
-	jsScript = fmt.Sprintf(`const module={};%s;String(module.exports)`, jsScript)
 	return v.Eval(jsScript, res)
 }
 
@@ -79,32 +83,20 @@ func (v *vesta) Run() error {
 	return chromedp.Run(v.ctx, v.actions...)
 }
 
-//  GetBytes
-func (v *vesta) GetBytes(jsScript string) []byte {
+// GetValue
+func (v *vesta) GetValue(jsScript string) interface{} {
+	var res interface{}
+	err := v.Eval(jsScript, &res).Run()
+	if err != nil {
+		panic(err)
+	}
+	return res
+}
+
+// GetScreen New().Viewport(1920,1080).Screen()
+func (v *vesta) GetScreen() []byte {
 	var res []byte
-	v.Eval(jsScript, &res)
-	err := v.Run()
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
-//  GetString
-func (v *vesta) GetString(jsScript string) string {
-	var res string //这里不用byte，因为一些api的值是 unicode 编码，比如说document.title
-	v.Eval(jsScript, &res)
-	err := v.Run()
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
-// GetModuleString
-func (v *vesta) GetModuleString(jsScript string) string {
-	var res string // 这里不用byte，因为一些api的值是 unicode 编码，比如说document.title
-	v.EvalModuleString(jsScript, &res)
+	v.Screen(&res)
 	err := v.Run()
 	if err != nil {
 		panic(err)
@@ -114,11 +106,5 @@ func (v *vesta) GetModuleString(jsScript string) string {
 
 // Screen New().Viewport(1920,1080).Screen()
 func (v *vesta) GetImage() (*img.Picture, error) {
-	var res []byte
-	v.Screen(&res)
-	err := v.Run()
-	if err != nil {
-		panic(err)
-	}
-	return img.FromBytes(res)
+	return img.FromBytes(v.GetScreen())
 }
