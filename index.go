@@ -7,7 +7,7 @@ import (
 
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
-	"github.com/mocheer/pluto/img"
+	"github.com/mocheer/pluto/ts/img"
 )
 
 // vesta 不支持单元测试环境
