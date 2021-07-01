@@ -105,6 +105,6 @@ func (v *vesta) GetScreen() []byte {
 }
 
 // Screen New().Viewport(1920,1080).Screen()
-func (v *vesta) GetImage() (*img.Picture, error) {
+func (v *vesta) GetImage() (*img.Img, error) {
 	return img.FromBytes(v.GetScreen())
 }
