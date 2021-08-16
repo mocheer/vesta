@@ -19,6 +19,7 @@ type vesta struct {
 
 func New() *vesta {
 	ctx, cancel := chromedp.NewContext(context.Background())
+
 	return &vesta{
 		ctx:    ctx,
 		cancel: cancel,
@@ -79,32 +80,35 @@ func (v *vesta) Screen(res *[]byte) *vesta {
 
 // Run
 func (v *vesta) Run() error {
-	defer v.cancel()
 	return chromedp.Run(v.ctx, v.actions...)
 }
 
+// Cancel 取消, window/temp下生成chromedp-runner文件有时候不会被移除，日积月累容易导致硬盘空间不足 => 待验证
+func (v *vesta) Cancel() {
+	chromedp.Cancel(v.ctx)
+	v.cancel()
+}
+
 // GetValue
-func (v *vesta) GetValue(jsScript string) interface{} {
+func (v *vesta) GetValue(jsScript string) (interface{}, error) {
 	var res interface{}
 	err := v.Eval(jsScript, &res).Run()
-	if err != nil {
-		panic(err)
-	}
-	return res
+	return res, err
 }
 
 // GetScreen New().Viewport(1920,1080).Screen()
-func (v *vesta) GetScreen() []byte {
+func (v *vesta) GetScreen() ([]byte, error) {
 	var res []byte
 	v.Screen(&res)
 	err := v.Run()
-	if err != nil {
-		panic(err)
-	}
-	return res
+	return res, err
 }
 
 // Screen New().Viewport(1920,1080).Screen()
 func (v *vesta) GetImage() (*img.Img, error) {
-	return img.FromBytes(v.GetScreen())
+	bs, err := v.GetScreen()
+	if err == nil {
+		return img.FromBytes(bs)
+	}
+	return nil, err
 }
