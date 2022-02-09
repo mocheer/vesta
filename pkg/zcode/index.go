@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mocheer/pluto/pkg/ts/clock"
-	"github.com/mocheer/vesta"
+	"github.com/mocheer/vesta/cmd/vesta"
 )
 
 type ZCode struct {
