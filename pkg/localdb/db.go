@@ -1,19 +1,17 @@
-package zcode
+package localdb
 
 import (
 	"time"
 
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-var dsn = ""
-
 // Open 连接数据库
-func OpenDB() (db *gorm.DB, err error) {
+func Open(dsn string) (db *gorm.DB, err error) {
 
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		AllowGlobalUpdate:      false, // 不允许全局update
 		PrepareStmt:            true,  // 缓存预编译语句，执行任何 SQL 时都创建并缓存预编译语句，可以提高后续的调用速度
 		SkipDefaultTransaction: true,  // 禁用默认事务(使用事务能确保数据完整，但会降低性能)，这将获得大约 30%+ 性能提升

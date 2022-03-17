@@ -5,6 +5,7 @@ import (
 
 	"github.com/mocheer/pluto/pkg/ts/clock"
 	"github.com/mocheer/vesta/cmd/vesta"
+	"github.com/mocheer/vesta/pkg/localdb"
 )
 
 type ZCode struct {
@@ -21,7 +22,7 @@ func (ZCode) TableName() string {
 	return "studio.dmap_zcode"
 }
 
-var db, _ = OpenDB()
+var db, _ = localdb.Open("data.db")
 
 func Reptile() {
 	vm = vesta.New().Nav("http://www.stats.gov.cn/tjsj/tjbz/tjyqhdmhcxhfdm/2021/index.html")
