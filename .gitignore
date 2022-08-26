@@ -10,3 +10,7 @@ config
 # 
 data
 log
+
+# 
+go.work
+go.work.sum

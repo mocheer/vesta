@@ -56,7 +56,7 @@ func (v *Vesta) Wait(d time.Duration) *Vesta {
 }
 
 // WaitVisible
-func (v *Vesta) WaitReady(sel interface{}) *Vesta {
+func (v *Vesta) WaitReady(sel any) *Vesta {
 	return v.AddTask(chromedp.WaitReady(sel))
 }
 
@@ -71,7 +71,7 @@ func (v *Vesta) WaitQuery(id string) *Vesta {
 }
 
 // Eval
-func (v *Vesta) Eval(jsScript string, res interface{}) *Vesta {
+func (v *Vesta) Eval(jsScript string, res any) *Vesta {
 	// res 会获取最后一个表达式的值，可以用分号，逗号正常的编写复杂的js脚本，只要最后一个表达式是最后要获取的值就可以了。
 	action := chromedp.Evaluate(jsScript, res, func(p *runtime.EvaluateParams) *runtime.EvaluateParams {
 		// 支持promise
@@ -81,7 +81,7 @@ func (v *Vesta) Eval(jsScript string, res interface{}) *Vesta {
 }
 
 // EvalModule 支持CommonJS的模块化支持，获取模块抛出的对象
-func (v *Vesta) EvalModule(jsScript string, res interface{}) *Vesta {
+func (v *Vesta) EvalModule(jsScript string, res any) *Vesta {
 	jsScript = fmt.Sprintf(`const module={};%s;module.exports`, jsScript)
 	return v.Eval(jsScript, res)
 }
@@ -105,14 +105,14 @@ func (v *Vesta) Cancel() {
 }
 
 // GetValue
-func (v *Vesta) Get(jsScript string, res interface{}) error {
+func (v *Vesta) Get(jsScript string, res any) error {
 	err := v.Eval(jsScript, &res).Run()
 	return err
 }
 
 // GetValue
-func (v *Vesta) GetValue(jsScript string) (interface{}, error) {
-	var res interface{}
+func (v *Vesta) GetValue(jsScript string) (any, error) {
+	var res any
 	err := v.Eval(jsScript, &res).Run()
 	return res, err
 }
