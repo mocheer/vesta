@@ -1,6 +1,6 @@
 module github.com/mocheer/vesta
 
-go 1.19
+go 1.20
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20220515234810-83d799542a04
