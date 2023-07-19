@@ -2,7 +2,10 @@
 
 一个网页采集的相关类库
 
-### linux 安装 chrome
+## rod
+考虑切换到[rod](https://go-rod.github.io/)
+
+## linux 安装 chrome
 
 ```sh
 yum install mesa-libOSMesa-devel gnu-free-sans-fonts wqy-zenhei-fonts

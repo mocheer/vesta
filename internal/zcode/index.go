@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/mocheer/pluto/pkg/ts/clock"
-	"github.com/mocheer/vesta/cmd/vesta"
 	"github.com/mocheer/vesta/pkg/localdb"
+	"github.com/mocheer/vesta/pkg/vesta"
 )
 
 type ZCode struct {
@@ -25,7 +25,7 @@ func (ZCode) TableName() string {
 var db, _ = localdb.Open("data.db")
 
 func Reptile() {
-	vm = vesta.New().Nav("http://www.stats.gov.cn/tjsj/tjbz/tjyqhdmhcxhfdm/2021/index.html")
+	vm = vesta.New().Nav("http://www.stats.gov.cn/sj/tjbz/tjyqhdmhcxhfdm/2021/index.html")
 
 	provinces := []*ZCode{}
 	err := vm.Get(`

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/mocheer/vesta/cmd/vesta"
+	"github.com/mocheer/vesta/pkg/vesta"
 )
 
 func main() {
