@@ -8,8 +8,7 @@ import (
 	"github.com/mocheer/vesta/pkg/vesta"
 )
 
-type ZCode struct {
-	Code  string `gorm:"column:id;primary_key"`
+type NovelChapter struct {
 	Name  string
 	Level int
 	Link  string `gorm:"-"`
@@ -18,36 +17,45 @@ type ZCode struct {
 var vm *vesta.Vesta
 
 // TableName 设置表名
-func (ZCode) TableName() string {
-	return "studio.dmap_zcode"
+func (NovelChapter) TableName() string {
+	return "studio.dmap_novel"
 }
 
 var db, _ = localdb.Open("data.db")
 
 func Reptile() {
-	vm = vesta.NewWithDefault().Nav("http://www.stats.gov.cn/sj/tjbz/tjyqhdmhcxhfdm/2021/index.html")
+	vm = vesta.NewWithDefault().Nav("http://www.miaoshuzhai.net/xs/142242/54129321.html")
 
-	provinces := []*ZCode{}
+	novels := []*NovelChapter{}
 	err := vm.Get(`
-		Array.from(document.querySelectorAll("body table table a")).map(e=>({name:e.innerText.replace("\n"," "),link:e.href,code:e.href.split('/').pop().slice(0,2)}))
+({title:document.querySelector('.bookname>h1').textContent,content:Array.from(document.querySelector("#content").children)
+  .map((e) => {
+    if(e.tagName == 'BR'){
+      return '\n'
+    }
+    let content = window.getComputedStyle(e, "before").content;
+    content = content.slice(1, content.length - 1);
+    return content;
+  })
+  .join("");})
 	`,
-		&provinces)
+		&novels)
 	//
 	vm.Cancel()
 	if err != nil {
 		panic(err)
 	}
 
-	doReptile(provinces, 1)
+	doReptile(novels, 1)
 }
 
-func doReptile(data []*ZCode, level int) {
+func doReptile(data []*NovelChapter, level int) {
 
 	//
 	for _, item := range data {
 		item.Level = level
 		if item.Link != "" {
-			nextData := []*ZCode{}
+			nextData := []*NovelChapter{}
 		start:
 			fmt.Println("开始抓取", item)
 			vm := vesta.NewWithDefault()
