@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -233,6 +232,7 @@ func (v *Vesta) Inject(jsScript string) *Vesta {
 type InterceptRequestParams struct {
 	UpdateBody  map[string]string
 	ReplaceBody map[string]string
+	Match       string
 }
 
 // InterceptRequestWithJS 拦截请求
@@ -247,12 +247,14 @@ func (v *Vesta) InterceptRequestWithJS(args *InterceptRequestParams) *Vesta {
 				// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#event-requestPaused
 				go func(ee *fetch.EventRequestPaused) {
 					request := ee.Request
-					log.Println(maps.Keys(ee.Request.Headers), request.Headers)
 					// 重写返回的结果
 					updateScript, ok := args.UpdateBody[request.URL]
+					if !ok && args.Match != "" {
+						updateScript = args.Match
+						ok = true
+					}
 					if ok {
 						// ee.Request.Headers["[Accept"]
-
 						UpdateFetchBody(ctx, ee, func(b []byte, r *http.Response) []byte {
 							var body string
 							code := fmt.Sprintf(`JSON.stringify((%s)(%s))`, updateScript, string(b))

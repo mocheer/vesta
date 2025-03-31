@@ -120,3 +120,28 @@ func TestSave(t *testing.T) {
 
 	// vesta.SaveAllResource("http://192.168.118.103:9912/v/studio/login")
 }
+
+func TestA(t *testing.T) {
+	v := vesta.New().EdgeBrowser().Head()
+
+	defer v.Cancel()
+	v.Nav("http://221.13.83.50:50403/shzhfz/prePlatform/index")
+	v.InterceptRequestWithJS(&vesta.InterceptRequestParams{
+		UpdateBody: map[string]string{
+			"http://221.13.83.50:50403/shzhfz/shzhfz-province-api/baseplat-auth/login": `data=>{
+			   data.code = 200
+				 data.data = true
+				 data.status = 200
+				 return data
+			}`,
+			"http://221.13.83.50:50403/shzhfz/shzhfz-province-api/baseplat-system/user/getInfo": `data=>{
+				 data.code = 200
+				 data.data = true
+				 data.status = 200
+				 return data
+			}`,
+		},
+	})
+	v.Sleep(100 * time.Hour)
+	v.Run()
+}

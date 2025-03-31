@@ -25,7 +25,7 @@ func (ZCode) TableName() string {
 var db, _ = localdb.Open("data.db")
 
 func Reptile() {
-	vm = vesta.NewWithDefault().Nav("http://www.stats.gov.cn/sj/tjbz/tjyqhdmhcxhfdm/2021/index.html")
+	vm = vesta.New().Nav("http://www.stats.gov.cn/sj/tjbz/tjyqhdmhcxhfdm/2021/index.html")
 
 	provinces := []*ZCode{}
 	err := vm.Get(`
@@ -50,7 +50,7 @@ func doReptile(data []*ZCode, level int) {
 			nextData := []*ZCode{}
 		start:
 			fmt.Println("开始抓取", item)
-			vm := vesta.NewWithDefault()
+			vm := vesta.New()
 			err := vm.Nav(item.Link).Get(`Array.from(document.querySelectorAll(".villagetr,.towntr,.countytr,.citytr")).map(e => {
 				let [td1,td2,td3] = e.querySelectorAll('td');
 				let code = td1.innerText
