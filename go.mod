@@ -6,7 +6,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20240810084448-b931b754e476
 	github.com/chromedp/chromedp v0.10.0
 	github.com/glebarez/sqlite v1.11.0
-	github.com/mocheer/pluto v1.1.7
+	github.com/mocheer/pluto v0.0.0-20250417063410-affaeb367fe5
 	gorm.io/gorm v1.25.11
 )
 
@@ -27,7 +27,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	golang.org/x/image v0.0.0-20220413100746-70e8d0d3baa9 // indirect
+	golang.org/x/image v0.11.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	modernc.org/libc v1.59.9 // indirect
