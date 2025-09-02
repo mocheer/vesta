@@ -17,6 +17,8 @@ import (
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/mocheer/pluto/pkg/ds"
+	"github.com/mocheer/pluto/pkg/fn"
+	"github.com/mocheer/pluto/pkg/ts/ctp"
 	"github.com/mocheer/pluto/pkg/ts/img"
 )
 
@@ -67,6 +69,12 @@ func (v *Vesta) Head() *Vesta {
 // 使用Edge浏览器
 func (v *Vesta) EdgeBrowser() *Vesta {
 	v.options = append(v.options, chromedp.ExecPath("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"))
+	return v
+}
+
+// 这个是F11全屏，连浏览器工具栏都隐藏了
+func (v *Vesta) Fullscreen() *Vesta {
+	v.options = append(v.options, chromedp.Flag("start-fullscreen", true))
 	return v
 }
 
@@ -247,8 +255,10 @@ func (v *Vesta) InterceptRequestWithJS(args *InterceptRequestParams) *Vesta {
 				// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#event-requestPaused
 				go func(ee *fetch.EventRequestPaused) {
 					request := ee.Request
+
 					// 重写返回的结果
 					updateScript, ok := args.UpdateBody[request.URL]
+
 					if !ok && args.Match != "" {
 						updateScript = args.Match
 						ok = true
@@ -286,8 +296,82 @@ func (v *Vesta) InterceptRequestWithJS(args *InterceptRequestParams) *Vesta {
 	return v.AddTask(fetch.Enable()).AddTask(action)
 }
 
+// InterceptRequestWithBauduPano 拦截请求
+func (v *Vesta) InterceptRequestWithBauduPano(name string) *Vesta {
+
+	action := chromedp.ActionFunc(func(ctx context.Context) error {
+		chromedp.ListenTarget(ctx, func(e interface{}) {
+			switch ev := e.(type) {
+			// 需要设置fetch.Eable请求才会暂停
+			case *fetch.EventRequestPaused:
+				// 包括js、css等资源的请求都会进来
+				// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#event-requestPaused
+				go func(ee *fetch.EventRequestPaused) {
+					request := ee.Request
+
+					if strings.Contains(request.URL, "https://mapsv0.bdimg.com/?qt=sdata") {
+						group := fn.NewWaitGroup()
+						u, _ := url.Parse(request.URL)
+						query := u.Query()
+						sid := query.Get("sid")
+						//
+						log.Println(sid)
+
+						data := FetchByHttp(ee)
+						config := string(data)
+						configByte := []byte(config[strings.Index(config, "(")+1 : strings.LastIndex(config, ")")])
+						ds.Save(fmt.Sprintf("./data/%s/%s/config.json", name, sid), configByte)
+
+						auth := query.Get("auth")
+						seckey := query.Get("seckey")
+						udt := query.Get("udt")
+
+						for i := range 4 {
+							for j := range 8 {
+								if i == 0 && j == 0 {
+									pdataURL := fmt.Sprintf("https://mapsv1.bdimg.com/?qt=pdata&sid=%s&pos=%d_%d&z=%d&udt=%s&from=PC&auth=%s&seckey=%s", sid, i, j, 1, udt, auth, seckey)
+									fname := fmt.Sprintf("./data/%s/%s/0_%d_%d.jpg", name, sid, i, j)
+									if !ds.IsExist(fname) {
+										group.Go(func() {
+											log.Println(fname)
+											ctp.Save(pdataURL, fname)
+										})
+									}
+								}
+								pdataURL := fmt.Sprintf("https://mapsv1.bdimg.com/?qt=pdata&sid=%s&pos=%d_%d&z=%d&udt=%s&from=PC&auth=%s&seckey=%s", sid, i, j, 4, udt, auth, seckey)
+								filename := fmt.Sprintf("./%s/%s/%d_%d.jpg", name, sid, i, j)
+								if !ds.IsExist(filename) {
+									group.Go(func() {
+										log.Println(filename)
+										ctp.Save(pdataURL, filename)
+									})
+
+								}
+							}
+						}
+						group.Wait()
+					}
+					c := chromedp.FromContext(ctx)
+					ctxFetch := cdp.WithExecutor(ctx, c.Target)
+					fetch.ContinueRequest(ee.RequestID).Do(ctxFetch)
+
+				}(ev)
+			}
+		})
+		return nil
+	})
+	// 启用发出requestPaused事件。请求将被暂停，直到客户端 调用failRequest、fulfilled request或continuerrequest /continueWithAuth中的一个。
+	// 这里通过pattern指定拦截的url
+	return v.AddTask(fetch.Enable()).AddTask(action)
+}
+
+func (v *Vesta) MouseClickXY(x, y float64) *Vesta {
+	return v.AddTask(chromedp.MouseClickXY(x, y))
+}
+
 // SaveAllResource
 func (v *Vesta) SaveAllResource() *Vesta {
+
 	action := chromedp.ActionFunc(func(ctx context.Context) error {
 		// 会有线程安全的问题
 		urlMap := map[network.RequestID]string{}
@@ -419,4 +503,8 @@ func (v *Vesta) RunGetImage() (*img.Img, error) {
 		return i, err
 	}
 	return nil, err
+}
+
+func (v *Vesta) AddEventMouseClickXY() *Vesta {
+	return v
 }

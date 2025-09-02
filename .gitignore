@@ -16,3 +16,6 @@ go.work
 go.work.sum
 # 
 pkg/vesta/testdata/**/*
+
+# 
+baidu_pano/data

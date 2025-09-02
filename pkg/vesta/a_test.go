@@ -1,9 +1,11 @@
 package vesta_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/mocheer/pluto/pkg/ds"
 	"github.com/mocheer/vesta/pkg/vesta"
 )
 
@@ -144,4 +146,15 @@ func TestA(t *testing.T) {
 	})
 	v.Sleep(100 * time.Hour)
 	v.Run()
+}
+
+func TestC(t *testing.T) {
+
+	ds.EachFilesToRename("./baidu_pano", func(name string) string {
+		if strings.HasSuffix(name, ".png") {
+			return strings.ReplaceAll(name, ".png", ".jpg")
+		}
+		return name
+	})
+
 }
