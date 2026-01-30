@@ -16,7 +16,9 @@ import (
 	"github.com/go-vgo/robotgo"
 )
 
+// 弃用
 func (v *Vesta) AddEventMouseClickXY() *Vesta {
+
 	action := chromedp.ActionFunc(func(ctx context.Context) error {
 		chromedp.ListenTarget(ctx, func(ev any) {
 			// 监听从网页发送的消息

@@ -22,7 +22,7 @@ func TestHead(t *testing.T) {
 	v.Sleep(1000 * time.Millisecond)
 	v.Nav("https://www.zhihu.com/")
 	v.Eval("location.href", &val2)
-	v.Close()
+	v.ClosePage()
 	v.Run()
 
 	// 新标签页

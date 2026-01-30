@@ -14,10 +14,8 @@ import (
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
-	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/mocheer/pluto/pkg/ds"
-	"github.com/mocheer/pluto/pkg/fn"
 	"github.com/mocheer/pluto/pkg/ts/ctp"
 	"github.com/mocheer/pluto/pkg/ts/img"
 )
@@ -27,34 +25,56 @@ type Vesta struct {
 	cancels []context.CancelFunc
 	actions []chromedp.Action
 	//
-	allocator context.Context
-	ctx       context.Context
-	timeout   time.Duration
+	ctx context.Context
 }
 
-// initAllocator
-func (v *Vesta) initAllocator() {
+// initConnect
+func (v *Vesta) initConnect() {
 	// 创建一个新的执行分配器（ExecAllocator），负责启动浏览器并管理其生命周期
 	// 这个分配器包含了启动和配置 Chrome 浏览器所需的所有设置和资源。
-	// TODO:支持用NewRemoteAllocator来连接到一个已经在运行的 Chrome 实例，而不是启动一个新的浏览器实例。=> 重用同一个浏览器实例
+	// TODO:每次都是重新启动一个新浏览器进程，没有复用之前的cookie，经常要重新登录
+	// TODO:支持用 NewRemoteAllocator 来连接到一个已经在运行的 Chrome 实例，而不是启动一个新的浏览器实例。=> 重用同一个浏览器实例
 	//      需要确保开启了远程调试功能。这通常通过在启动 Chrome 时使用 --remote-debugging-port 参数来实现。
-	allocator, cancel := chromedp.NewExecAllocator(context.Background(), v.options...)
-	v.allocator = allocator
+	// chrome --remote-debugging-port=9222
+	// allocator, cancel := chromedp.NewRemoteAllocator(context.Background(), "http://localhost:9222")
+
+	// 根context
+	ctx := context.Background()
+	allocator, cancel := chromedp.NewExecAllocator(ctx, v.options...)
 	v.cancels = append(v.cancels, cancel)
+	// 浏览器实例的根context
+	ctx, cancel = chromedp.NewContext(allocator)
+	v.cancels = append(v.cancels, cancel)
+	v.ctx = ctx
+}
+
+// connect
+func (v *Vesta) connect() error {
+	ctx := context.Background()
+	// 尝试连接远程浏览器
+	allocator, cancel := chromedp.NewRemoteAllocator(ctx, "http://localhost:9222")
+	v.cancels = append(v.cancels, cancel)
+
+	// 浏览器实例的根context
+	ctx, cancel = chromedp.NewContext(allocator)
+	v.cancels = append(v.cancels, cancel)
+	// 测试连接，如果有错误，直接取消关闭
+	if err := chromedp.Run(ctx, chromedp.Navigate("about:blank")); err != nil {
+		v.Cancel()
+		return err
+	}
+	v.ctx = ctx
+	return nil
 }
 
 // initContext
 func (v *Vesta) initContext() {
 	if v.ctx == nil {
-		v.initAllocator()
-		ctx, cancel := chromedp.NewContext(v.allocator)
-		v.cancels = append(v.cancels, cancel)
-		// 超时自动取消
-		if v.timeout > 0 {
-			ctx, cancel = context.WithTimeout(ctx, v.timeout)
-			v.cancels = append(v.cancels, cancel)
+		err := v.connect()
+		if err != nil {
+			log.Println("无法连接远程浏览器，正在重新启动...")
+			v.initConnect()
 		}
-		v.ctx = ctx
 	}
 }
 
@@ -98,13 +118,6 @@ func (v *Vesta) UserAgent(agent string) *Vesta {
 	return v
 }
 
-// WithTimeout 脚本可能是Promise等待超长，又或者远程服务器超慢，这个时候需要设置超时时间，注意这里是当前整个chromedp的超时时间，不是单个Nav的超时时间
-// chromedp.WithTimeout
-func (v *Vesta) WithTimeout(timeout time.Duration) *Vesta {
-	v.timeout = timeout
-	return v
-}
-
 // NewContext 用于在同一个浏览器打开新页签
 func (v *Vesta) NewContext() *Vesta {
 	v.initContext()
@@ -131,6 +144,7 @@ func (v *Vesta) Cancel() {
 	for i := len(v.cancels) - 1; i >= 0; i-- {
 		v.cancels[i]()
 	}
+	v.cancels = []context.CancelFunc{}
 }
 
 // AddTask
@@ -145,9 +159,9 @@ func (v *Vesta) Reload() *Vesta {
 	return v.AddTask(chromedp.Reload())
 }
 
-// Close
+// ClosePage
 // 关闭当前标签页
-func (v *Vesta) Close() *Vesta {
+func (v *Vesta) ClosePage() *Vesta {
 	return v.AddTask(page.Close())
 }
 
@@ -165,6 +179,7 @@ func (v *Vesta) Setheaders(headers map[string]any) *Vesta {
 }
 
 // Nav
+// 将当前页跳转至目标页面
 // TODO 支持模拟Origin和Host
 func (v *Vesta) Nav(url string) *Vesta {
 	return v.AddTask(chromedp.Navigate(url))
@@ -187,7 +202,12 @@ func (v *Vesta) WaitReady(sel any) *Vesta {
 
 // WaitID
 func (v *Vesta) WaitID(id string) *Vesta {
-	return v.AddTask(chromedp.WaitVisible(id, chromedp.ByID))
+	return v.AddTask(
+		chromedp.WaitVisible(
+			id,
+			chromedp.ByID,
+		),
+	)
 }
 
 // WaitQuery selector 为css选择器
@@ -197,35 +217,58 @@ func (v *Vesta) WaitQuery(selector string) *Vesta {
 
 // Eval
 // 这个是在网页的load事件后执行的，如果要提前执行，需要用 chromedp.ActionFunc(似乎无效)
+// js对象可以直接用结构体接收数据
 func (v *Vesta) Eval(jsScript string, res any) *Vesta {
 	// res 会获取最后一个表达式的值，可以用分号，逗号正常的编写复杂的js脚本，只要最后一个表达式是最后要获取的值就可以了。
-	action := chromedp.Evaluate(jsScript, res, func(p *runtime.EvaluateParams) *runtime.EvaluateParams {
-		// p.WithReturnByValue(true)
-		// p.WithTimeout()
-		// 支持promise
-		return p.WithAwaitPromise(true)
-	})
+	action := chromedp.Evaluate(jsScript, res, GetDefaultEvaluateOptions())
 	return v.AddTask(action)
 }
 
-// chromedp.EvaluateAsDevTools 允许你执行JavaScript代码，就像在开发者工具控制台中执行一样
-// 相比于Evaluate，这个功能能访问特定的DevTools的一些API
-func (v *Vesta) EvaluateAsDevTools(jsScript string, res any) *Vesta {
+// FetchJSON
+func (v *Vesta) FetchJSON(url string, config string, res any) *Vesta {
+	return v.Eval(fmt.Sprintf(`fetch("%s",%s).then(res=>res.json())`, url, config), res)
+}
 
+// chromedp.EvaluateAsDevTools 允许你执行JavaScript代码，就像在开发者工具控制台中执行一样
+// 相比于Evaluate，这个功能能访问特定的DevTools的一些API，可以使用 DevTools 专属的快捷方法
+// DevTools 上下文切换有额外开销，普通任务用 Evaluate 更高效。
+// 例子：
+// DevTools 的 $ 选择器：$('div') 相当于 document.querySelector， $$('div') 相当于 document.querySelectorAll
+// DevTools 内部属性：可以返回非序列化的 DOM 节点引用
+// DevTools 的 getEventListeners
+// DevTools 上下文中，Error 对象有更完整的堆栈信息
+// 获取元素引用，返回 DOM 节点引用，不是 JSON，res可以用any接收，然后跨越脚本传递 == 需要验证
+// DevTools 性能指标
+// DevTools 的 timeline API
+func (v *Vesta) EvaluateAsDevTools(jsScript string, res any) *Vesta {
 	// res 会获取最后一个表达式的值，可以用分号，逗号正常的编写复杂的js脚本，只要最后一个表达式是最后要获取的值就可以了。
-	action := chromedp.EvaluateAsDevTools(jsScript, res, func(p *runtime.EvaluateParams) *runtime.EvaluateParams {
-		// p.WithReturnByValue(true)
-		// p.WithTimeout()
-		// 支持promise
-		return p.WithAwaitPromise(true)
-	})
+	action := chromedp.EvaluateAsDevTools(jsScript, res, GetDefaultEvaluateOptions())
 	return v.AddTask(action)
 }
 
 // Inject
-// page.addScriptToEvaluateOnNewDocument 可以向页面注入脚本，这些脚本将在新文档创建时执行，即在页面的任何脚本执行之前。
-// 可用于重写原型链，如Array.prototype.push，重写XMLHTTPREQUEST和fetch
+// page.addScriptToEvaluateOnNewDocument 可以向页面注入脚本，这些脚本将在新文档创建时执行，即在页面的任何脚本执行之前，可以操作文档 document 对象，但html解析未开始
+// 可用于重写原型链，如Array.prototype.push，重写xhr和fetch
+// 可用于重写页面document.documentElement.innerHTML，但无法获取dom对象， document.body为空，但可以创建dom节点，只是只能通过 document.documentElement.appendChild 添加节点，跟body处于同一个级别，似乎可以添加script节点，因为浏览器会自动纠正，相当于在body中执行
 // sketchfab会覆盖console.log，这里也可用于提前缓存再还原
+// 这个在nav之前使用inject，
+// 执行时机：
+//
+// 页面开始加载
+// ↓
+// 创建新的 Document 对象
+// ↓
+// ✅ `AddScriptToEvaluateOnNewDocument` 脚本执行 ← 关键时机！
+// ↓
+// 解析 HTML（包括 script 标签）
+// ↓
+// 按照文档顺序执行 script 标签（内联/外部）
+// ↓
+// # DOMContentLoaded 事件
+// ↓
+// 页面资源加载完成
+// ↓
+// load 事件
 func (v *Vesta) Inject(jsScript string) *Vesta {
 	action := chromedp.ActionFunc(func(cxt context.Context) error {
 		_, err := page.AddScriptToEvaluateOnNewDocument(jsScript).Do(cxt)
@@ -235,6 +278,62 @@ func (v *Vesta) Inject(jsScript string) *Vesta {
 		return nil
 	})
 	return v.AddTask(action)
+}
+
+// TODO 验证
+func (v *Vesta) InjectGuard() *Vesta {
+	return v.Inject(`
+Object.defineProperty(window, 'location', {
+    get() {
+        const proxy = new Proxy(originalLocation, {
+            get(target, prop) {
+                if (prop === 'href' || prop === 'assign' || prop === 'replace') {
+                    return function() {
+                        console.warn('页面跳转被阻止:', arguments[0]);
+                        return undefined;
+                    };
+                }
+                return target[prop];
+            },
+            set(target, prop, value) {
+                if (prop === 'href') {
+                    console.warn('location.href 设置被阻止:', value);
+                    return true;
+                }
+                target[prop] = value;
+                return true;
+            }
+        });
+        return proxy;
+    },
+    set(value) {
+        console.warn('window.location 赋值被阻止');
+        return false;
+    },
+    configurable: false,
+    enumerable: true
+});
+
+// 2. 拦截 window.open
+window.open = function() {
+    console.warn('window.open 被阻止:', arguments[0]);
+    return null;
+};
+
+// 3. 拦截 form 提交
+HTMLFormElement.prototype.submit = function() {
+    console.warn('表单提交被阻止');
+    return false;
+};
+
+// 4. 拦截 a 标签点击（可选）
+document.addEventListener('click', function(e) {
+    if (e.target.tagName === 'A' && e.target.href) {
+        e.preventDefault();
+        console.warn('链接点击被阻止:', e.target.href);
+    }
+}, true);
+`)
 }
 
 type InterceptRequestParams struct {
@@ -296,7 +395,7 @@ func (v *Vesta) InterceptRequestWithJS(args *InterceptRequestParams) *Vesta {
 	return v.AddTask(fetch.Enable()).AddTask(action)
 }
 
-// InterceptRequestWithBauduPano 拦截请求
+// InterceptRequestWithBauduPano 拦截百度全景图
 func (v *Vesta) InterceptRequestWithBauduPano(name string) *Vesta {
 
 	action := chromedp.ActionFunc(func(ctx context.Context) error {
@@ -310,7 +409,7 @@ func (v *Vesta) InterceptRequestWithBauduPano(name string) *Vesta {
 					request := ee.Request
 
 					if strings.Contains(request.URL, "https://mapsv0.bdimg.com/?qt=sdata") {
-						group := fn.NewWaitGroup()
+						var group sync.WaitGroup
 						u, _ := url.Parse(request.URL)
 						query := u.Query()
 						sid := query.Get("sid")
@@ -466,12 +565,18 @@ func (v *Vesta) Screen(res *[]byte) *Vesta {
 // Run
 func (v *Vesta) Run() error {
 	v.initContext()
-	err := chromedp.Run(v.ctx, v.actions...)
+	// 任务执行的超时时间：默认5分钟
+	// 脚本可能是Promise等待超长，又或者远程服务器超慢，这个时候需要设置超时时间
+	ctx, cancel := context.WithTimeout(v.ctx, 5*time.Minute)
+	defer cancel()
+	//
+	err := chromedp.Run(ctx, v.actions...)
 	v.actions = []chromedp.Action{}
 	return err
 }
 
 // GetValue
+// json 可以直接用结构体接收数据
 func (v *Vesta) Get(jsScript string, res any) *Vesta {
 	err := v.Eval(jsScript, &res)
 	return err

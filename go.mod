@@ -1,23 +1,24 @@
 module github.com/mocheer/vesta
 
-go 1.24.0
+go 1.25.0
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20240810084448-b931b754e476
-	github.com/chromedp/chromedp v0.10.0
+	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d
+	github.com/chromedp/chromedp v0.14.2
 	github.com/glebarez/sqlite v1.11.0
 	github.com/mocheer/pluto v0.0.0-20250417063410-affaeb367fe5
 	gorm.io/gorm v1.25.11
 )
 
 require (
-	github.com/chromedp/sysutil v1.0.0 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/dblohm7/wingoes v0.0.0-20250611174154-e3e096948d18 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/gen2brain/shm v0.1.1 // indirect
 	github.com/glebarez/go-sqlite v1.22.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-vgo/robotgo v0.110.8 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
@@ -43,6 +44,10 @@ require (
 	github.com/robotn/xgbutil v0.10.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.5 // indirect
 	github.com/tailscale/win v0.0.0-20250213223159-5992cb43ca35 // indirect
+	github.com/tidwall/gjson v1.15.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/vcaesar/gops v0.41.0 // indirect
@@ -53,7 +58,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476 // indirect
 	golang.org/x/image v0.28.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 	modernc.org/libc v1.59.9 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
