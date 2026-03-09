@@ -9,7 +9,6 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-vgo/robotgo v0.110.8
 	github.com/mocheer/pluto v0.0.0-20260204110653-70886c52c61a
-	github.com/mocheer/xena v0.0.0-20250417063823-ecefda2ced08
 	github.com/ouqiang/goproxy v1.3.2
 	github.com/ouqiang/websocket v1.6.2
 	github.com/tidwall/gjson v1.18.0
@@ -48,6 +47,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
 	github.com/matoous/go-nanoid/v2 v2.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mocheer/xena v0.0.0-20260306034646-f773f993de30 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/otiai10/gosseract v2.2.1+incompatible // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
