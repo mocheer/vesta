@@ -85,9 +85,9 @@ func (v *Vesta) Head() *Vesta {
 	return v
 }
 
-// EdgeBrowser
+// Edge
 // 使用Edge浏览器
-func (v *Vesta) EdgeBrowser() *Vesta {
+func (v *Vesta) Edge() *Vesta {
 	v.options = append(v.options, chromedp.ExecPath("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"))
 	return v
 }

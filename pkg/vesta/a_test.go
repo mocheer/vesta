@@ -11,7 +11,7 @@ import (
 
 func TestHead(t *testing.T) {
 
-	v := vesta.New().EdgeBrowser().Head()
+	v := vesta.New().Edge().Head()
 	var val1 string
 	var val2 string
 	var val3 string
@@ -124,7 +124,7 @@ func TestSave(t *testing.T) {
 }
 
 func TestA(t *testing.T) {
-	v := vesta.New().EdgeBrowser().Head()
+	v := vesta.New().Edge().Head()
 
 	defer v.Cancel()
 	v.Nav("http://221.13.83.50:50403/shzhfz/prePlatform/index")

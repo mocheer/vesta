@@ -18,8 +18,8 @@ import (
 )
 
 func main() {
-	// go ReptileQ()
-	go ReptileM()
+	go ReptileQ()
+	// go ReptileM()
 	// ReptileW()
 	select {}
 }
@@ -93,46 +93,72 @@ func ReptileQ() {
 	// time.Sleep(10 * time.Second)
 	vm.Nav("http://10.135.6.98/fdms/q")
 	qdata := new(QMenu)
-	vm.Eval(`
-(function(){
-		// 省份 dom
-		let items = Array.from(window.frames[0].document.querySelectorAll('.provinceElement'))
-		// 省份
-		let provinces = items.map(e=>{
-			let capitalA = e.children[0].querySelector('a')
-			let citylistA = Array.from(e.children[1].querySelectorAll('a.btn'))
-			return {
-				// 省份名称
-				name:capitalA.innerText,
-				adcd:capitalA.id || capitalA.getAttribute('adcdcode'),
-				hasData:true,
-				// 城市名称
-				items:citylistA.map(e=>{
+	if !ds.IsExist("./q/provinces.json") {
+		getProvincesScript := `(function(){
+				// 省份 dom
+				let items = Array.from(window.frames[0].document.querySelectorAll('.provinceElement'))
+				// 省份
+				let provinces = items.map(e=>{
+					let capitalA = e.children[0].querySelector('a')
+					let citylistA = Array.from(e.children[1].querySelectorAll('a.btn'))
 					return {
-						name:e.innerText,
+						// 省份名称
+						name:capitalA.innerText,
+						adcd:capitalA.id || capitalA.getAttribute('adcdcode'),
 						hasData:true,
-						adcd:e.id || e.getAttribute('adcdcode'),
-						items:[]
+						// 城市名称
+						items:citylistA.map(e=>{
+							return {
+								name:e.innerText,
+								hasData:true,
+								adcd:e.id || e.getAttribute('adcdcode'),
+								items:[]
+							}
+						}).filter(e=>e.adcd)
 					}
-				}).filter(e=>e.adcd)
-			}
-		})
-		// 选项dom
-		// let options = Array.from(window.frames[1].document.querySelector("body>header>div>div>ul").querySelectorAll('a'))
-		let options = Array.from(window.frames[1].document.querySelector("#myselect").querySelectorAll('option'))
-		let config =  options.map(e=>{return {value:e.value, name:e.innerText}})
+				})
+				// 选项dom
+				// let options = Array.from(window.frames[1].document.querySelector("body>header>div>div>ul").querySelectorAll('a'))
+				let options = Array.from(window.frames[1].document.querySelector("#myselect").querySelectorAll('option'))
+				let config =  options.map(e=>{return {value:e.value, name:e.innerText}})
 
-		let qdata =  {
-			provinces,
-			options:config
-		};
-		return qdata
-})()
-	`, qdata).Run()
-	log.Println(len(qdata.Provinces))
-	if len(qdata.Provinces) > 0 {
-		ds_json.Save("./q/config.json", qdata)
+				let qdata =  {
+					provinces,
+					options:config
+				};
+				return qdata
+		})()`
+		vm.Eval(getProvincesScript, qdata).Run()
+		log.Println(len(qdata.Provinces))
+		// 
+		for _, pp := range qdata.Provinces {
+			for _, p2 := range pp.Items {
+				if !p2.HasData {
+					log.Println(p2.Adcd, p2.Name, "无数据")
+					continue
+				}
+				qdata2 := new(QMenu)
+				itemUrl := fmt.Sprintf(`window.frames[0].$("#cityList").attr("src", "/fdms/pro/dist/%s");1;`, string(p2.Adcd[0:6]))
+				log.Println(itemUrl)
+				err := vm.Eval(itemUrl, nil).Run()
+				if err != nil {
+					log.Println(p2.Adcd, p2.Name, err)
+					continue
+				}
+				time.Sleep(1 * time.Second)
+				vm.Eval(getProvincesScript, qdata2).Run()
+				p2.Items = append(p2.Items, qdata2.Provinces...)
+				log.Println(p2.Adcd, p2.Name, len(p2.Items))
+			}
+		}
+
+		if len(qdata.Provinces) > 0 {
+			ds_json.Save("./q/provinces.json", qdata)
+		}
+	}else{	
+		ds_json.ReadFile("./q/provinces.json", qdata)
 	}
+	
 	var r func(qdata *QMenu)
 	r = func(qdata *QMenu) {
 		for _, p := range qdata.Provinces {
@@ -219,7 +245,49 @@ func ReptileQ() {
 			}
 		}
 	}
-	r(qdata)
+	// 暂不采集
+	// r(qdata)
+	// 小流域数据
+	var r2 func(qdata *QMenu)
+	r2 = func(qdata *QMenu) {
+		for _, p := range qdata.Provinces {
+			fname := fmt.Sprintf("./q/小流域(补充)/%s.json", p.Adcd)
+			if ds.IsExist(fname){
+				continue
+			}
+			// http://10.135.6.98/fdms/pages/search/query/getVillageInfo/350111100212000
+			var data string
+			url := fmt.Sprintf("http://10.135.6.98/fdms/pages/search/query/getVillageInfo/%s", p.Adcd)
+			vm.Eval(fmt.Sprintf(`fetch("%s", {
+  "headers": {
+    "accept": "*/*",
+    "accept-language": "zh-CN,zh;q=0.9",
+    "cache-control": "no-cache",
+    "pragma": "no-cache",
+    "x-requested-with": "XMLHttpRequest"
+  },
+  "referrer": "http://10.135.6.98/fdms/pages/frameui/modules/xianjitongji/huizongbiao/model/village.jsp?adcd=%s",
+  "body": null,
+  "method": "POST",
+  "mode": "cors",
+  "credentials": "include"
+}).then(res=>res.text())`, url, p.Adcd), &data).Run()
+
+		log.Println(fname)
+			if data != "" {
+				ds.Save(fname, []byte(data))
+			}
+			if len(p.Items) > 0 {
+				r2(&QMenu{
+					Provinces: p.Items,
+					Options:   qdata.Options,
+				})
+			}
+
+		}
+
+	}
+	r2(qdata)
 }
 
 // function shengChange(itemId, src) {
