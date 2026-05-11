@@ -11,7 +11,7 @@ import (
 	"github.com/mocheer/pluto/pkg/ds"
 	"github.com/mocheer/pluto/pkg/ds/ds_json"
 	"github.com/mocheer/pluto/pkg/ts/ctp"
-	"github.com/mocheer/pluto/pkg/ts/js"
+	"github.com/mocheer/pluto/pkg/ts/window"
 	"github.com/mocheer/vesta/pkg/vesta"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -130,7 +130,7 @@ func ReptileQ() {
 		})()`
 		vm.Eval(getProvincesScript, qdata).Run()
 		log.Println(len(qdata.Provinces))
-		// 
+		//
 		for _, pp := range qdata.Provinces {
 			for _, p2 := range pp.Items {
 				if !p2.HasData {
@@ -155,10 +155,10 @@ func ReptileQ() {
 		if len(qdata.Provinces) > 0 {
 			ds_json.Save("./q/provinces.json", qdata)
 		}
-	}else{	
+	} else {
 		ds_json.ReadFile("./q/provinces.json", qdata)
 	}
-	
+
 	var r func(qdata *QMenu)
 	r = func(qdata *QMenu) {
 		for _, p := range qdata.Provinces {
@@ -252,7 +252,7 @@ func ReptileQ() {
 	r2 = func(qdata *QMenu) {
 		for _, p := range qdata.Provinces {
 			fname := fmt.Sprintf("./q/小流域(补充)/%s.json", p.Adcd)
-			if ds.IsExist(fname){
+			if ds.IsExist(fname) {
 				continue
 			}
 			// http://10.135.6.98/fdms/pages/search/query/getVillageInfo/350111100212000
@@ -273,7 +273,7 @@ func ReptileQ() {
   "credentials": "include"
 }).then(res=>res.text())`, url, p.Adcd), &data).Run()
 
-		log.Println(fname)
+			log.Println(fname)
 			if data != "" {
 				ds.Save(fname, []byte(data))
 			}
@@ -542,7 +542,7 @@ func ReptileM() {
 							if !ds.IsExist(src) {
 								// encodeURI(encodeURI(r.Fpath))
 								// 没办法，目标站点太奇葩
-								curl := "http://10.135.6.98/fdms/pages/search/query/getImg/" + js.EncodeURI(js.EncodeURI(r.Fpath)) + "/JPG"
+								curl := "http://10.135.6.98/fdms/pages/search/query/getImg/" + window.EncodeURI(window.EncodeURI(r.Fpath)) + "/JPG"
 								data, err := ctp.Get(curl)
 								if err == nil && len(data) > 0 {
 									go ds.Save(src, data)
@@ -710,7 +710,7 @@ func ReptileW() {
 				continue
 			}
 			pname := strings.ReplaceAll(row.Dpath, "\\", "~")
-			uname := js.EncodeURI(js.EncodeURI(pname))
+			uname := window.EncodeURI(window.EncodeURI(pname))
 			// http://10.135.6.98/fdms/pages/search/query/readDocs/~35-%25E7%25A6%258F%25E5%25BB%25BA~%25E9%25A9%25AC%25E5%25B0%25BE%25E5%258C%25BA~350105_%25E9%25A9%25AC%25E5%25B0%25BE%25E5%258C%25BA2013-2015%25E5%25B9%25B4%25E5%25BA%25A6%25E5%25B1%25B1%25E6%25B4%25AA%25E7%2581%25BE%25E5%25AE%25B3%25E5%2588%2586%25E6%259E%2590%25E8%25AF%2584%25E4%25BB%25B7%25E6%258A%25A5%25E5%2591%258A(%25E6%258A%25A5%25E6%2589%25B9%25E7%25A8%25BF)_%25E7%25A6%258F%25E5%25B7%259E%25E5%25B8%2582%25E6%25B0%25B4%25E5%2588%25A9%25E6%25B0%25B4%25E7%2594%25B5%25E5%25BC%2580%25E5%258F%2591%25E5%2585%25AC%25E5%258F%25B8_201611.doc/PDF
 			curl := "http://10.135.6.98/fdms/pages/search/query/readDocs/" + uname + "/PDF"
 
