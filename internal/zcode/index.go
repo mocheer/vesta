@@ -25,6 +25,8 @@ func (ZCode) TableName() string {
 var db, _ = localdb.Open("data.db")
 
 func Reptile() {
+	// https://data.stats.gov.cn/dg/website/page.html#/pc/national/countryYearData
+	// https://www.stats.gov.cn/xxgk/tjbz/gjtjbz/201310/P020200612582963846218.PDF
 	vm = vesta.New().Nav("http://www.stats.gov.cn/sj/tjbz/tjyqhdmhcxhfdm/2021/index.html")
 
 	provinces := []*ZCode{}

@@ -24,9 +24,9 @@ func ScreenshotWithScript(url string, jsScript string) ([]byte, error) {
 }
 
 // SaveAllResource 用于保存系统加载的所有资源文件
-func SaveAllResource(url string) {
+func SaveAllResource(url string, dir string) {
 	// SaveAllResource必须在Nav之前，否则最开始的html和js不会下载
-	v := New().Head().SaveAllResource().Nav(url)
+	v := New().Head().SaveAllResource(dir).Nav(url)
 	defer v.Cancel()
 	v.Sleep(time.Second * 3000)
 	v.Run()

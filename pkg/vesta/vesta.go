@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -32,7 +34,6 @@ type Vesta struct {
 func (v *Vesta) initConnect() {
 	// 创建一个新的执行分配器（ExecAllocator），负责启动浏览器并管理其生命周期
 	// 这个分配器包含了启动和配置 Chrome 浏览器所需的所有设置和资源。
-	// TODO:每次都是重新启动一个新浏览器进程，没有复用之前的cookie，经常要重新登录
 	// TODO:支持用 NewRemoteAllocator 来连接到一个已经在运行的 Chrome 实例，而不是启动一个新的浏览器实例。=> 重用同一个浏览器实例
 	//      需要确保开启了远程调试功能。这通常通过在启动 Chrome 时使用 --remote-debugging-port 参数来实现。
 	// chrome --remote-debugging-port=9222
@@ -92,6 +93,26 @@ func (v *Vesta) Edge() *Vesta {
 	return v
 }
 
+// EdgeUserData
+// 设置Edge浏览器的用户数据目录
+func (v *Vesta) EdgeUserData() *Vesta {
+	// 使用Windows系统上Edge的User Data的默认路径
+	homeDir, _ := os.UserHomeDir() // 获取用户主目录,在windows是C:\Users\Administrator
+	userDataDir := filepath.Join(homeDir, "AppData", "Local", "Microsoft", "Edge", "User Data")
+	v.options = append(v.options, chromedp.UserDataDir(userDataDir))
+	return v
+}
+
+// ChromeUserData
+// 设置Chrome浏览器的用户数据目录
+func (v *Vesta) ChromeUserData() *Vesta {
+	// 使用Windows系统上Chrome的User Data的默认路径
+	homeDir, _ := os.UserHomeDir() // 获取用户主目录,在windows是C:\Users\Administrator
+	userDataDir := filepath.Join(homeDir, "AppData", "Local", "Google", "Chrome", "User Data")
+	v.options = append(v.options, chromedp.UserDataDir(userDataDir))
+	return v
+}
+
 // 这个是F11全屏，连浏览器工具栏都隐藏了
 func (v *Vesta) Fullscreen() *Vesta {
 	v.options = append(v.options, chromedp.Flag("start-fullscreen", true))
@@ -118,7 +139,7 @@ func (v *Vesta) UserAgent(agent string) *Vesta {
 	return v
 }
 
-// NewContext 用于在同一个浏览器打开新页签
+// NewContext 用于在同一个浏览器中打开新页签并返回新的Vesta实例
 func (v *Vesta) NewContext() *Vesta {
 	v.initContext()
 	cancels := []context.CancelFunc{}
@@ -130,14 +151,14 @@ func (v *Vesta) NewContext() *Vesta {
 	}
 }
 
-// GetAllocator
+// GetAllocator 获取当前Vesta实例的Allocator
 func (v *Vesta) GetAllocator() chromedp.Allocator {
 	return chromedp.FromContext(v.ctx).Allocator
 }
 
+// Cancel
 // @see https://github.com/chromedp/chromedp/issues/592
-// C:\Users\Administrator\AppData\Local\Temp
-// Cancel 取消, window/temp下生成chromedp-runner文件有时候不会被移除，日积月累容易导致硬盘空间不足 => 待验证
+// C:\Users\Administrator\AppData\Local\Temp 下生成chromedp-runner文件有时候不会被移除，日积月累容易导致硬盘空间不足 => 这里的取消待验证
 // chromedp.Cancel(v.ctx)
 // v.cancel()
 func (v *Vesta) Cancel() {
@@ -469,29 +490,44 @@ func (v *Vesta) MouseClickXY(x, y float64) *Vesta {
 }
 
 // SaveAllResource
-func (v *Vesta) SaveAllResource() *Vesta {
+func (v *Vesta) SaveAllResource(dir string) *Vesta {
+	v.SaveResourceWithFilter(dir, func(url string) bool {
+		return true
+	})
+	return v
+}
 
+// SaveResourceWithFilter 保存资源，根据filter过滤
+func (v *Vesta) SaveResourceWithFilter(dir string, filter func(url string) bool) *Vesta {
 	action := chromedp.ActionFunc(func(ctx context.Context) error {
 		// 会有线程安全的问题
 		urlMap := map[network.RequestID]string{}
 		mu := &sync.Mutex{}
 		chromedp.ListenTarget(ctx, func(e interface{}) {
 			switch ev := e.(type) {
+			// 请求发送前触发,用于获取请求前的请求头、请求体等信息
 			case *network.EventRequestWillBeSent:
+				if !filter(ev.Request.URL) {
+					return
+				}
 				mu.Lock()
 				urlMap[ev.RequestID] = ev.Request.URL
 				mu.Unlock()
+			// 浏览器收到响应头（status code, headers）时立即触发
 			// 虽然开始接收Response，但可能数据未全部加载完
-			// case *network.EventResponseReceived:
-			// 	urlMap[ev.RequestID] = ev.Response.URL
+			// 重定向时，一个请求可能产生多个 ResponseReceived（对应每次重定向），但只有一个最终 LoadingFinished。
+			case *network.EventResponseReceived:
 			case *network.EventLoadingFinished:
 				go func(ev *network.EventLoadingFinished, ctx context.Context) {
 					mu.Lock()
+					// 通过id关联拿到请求url
 					upath, ok := urlMap[ev.RequestID]
 					mu.Unlock()
 					if ok {
+						//
 						c := chromedp.FromContext(ctx)
 						ctxFetch := cdp.WithExecutor(ctx, c.Target)
+						// 获取响应体
 						data, err := network.GetResponseBody(ev.RequestID).Do(ctxFetch)
 						if err != nil {
 							fmt.Println(err)
@@ -509,18 +545,17 @@ func (v *Vesta) SaveAllResource() *Vesta {
 						if err != nil {
 							fmt.Println(err)
 						}
-						filename := "./testdata/save/" + uri.Hostname() + "/" + uri.Path
-
-						// url接口，很多都是相同名称不同参数
+						fname := filepath.Join(dir, uri.Hostname(), uri.Path)
+						// url接口，很多都是相同名称不同参数,这里加上参数名称作为文件名，但如果部署为web服务，这个原始名称反而404
 						if len(uri.RawQuery) > 0 {
-							// 但这样做会导致404
-							filename += "@" + url.QueryEscape(uri.RawQuery)
+							fname += filepath.Join(fname, url.QueryEscape(uri.RawQuery))
 						}
-						if strings.HasSuffix(filename, "/") {
-							filename += "index.html"
+						// 	TODO 检测内容类型
+						if strings.HasSuffix(fname, "/") {
+							fname += filepath.Join(fname, "index.html")
 						}
 						//
-						err = ds.Save(filename, data)
+						err = ds.Save(fname, data)
 						if err != nil {
 							fmt.Println(err)
 						}
@@ -549,6 +584,26 @@ func (v *Vesta) SaveAllResource() *Vesta {
 	return v.AddTask(action)
 }
 
+// SaveAllImages
+// 保存所有图片，只用文件后缀过滤其实不太准确，因为有些图片文件后缀是空的，比如base64编码的图片
+// 有些是根据服务端返回的content-type判断的，比如image/jpeg
+func (v *Vesta) SaveAllImages(dir string) *Vesta {
+	imageSuffix := []string{".jpg", ".png", ".gif", ".avif", ".webp", ".svg", ".ico"}
+	v.SaveResourceWithFilter(dir, func(u string) bool {
+		uri, err := url.Parse(u)
+		if err != nil {
+			fmt.Println(err)
+		}
+		for _, suffix := range imageSuffix {
+			if strings.HasSuffix(uri.Path, suffix) {
+				return true
+			}
+		}
+		return false
+	})
+	return v
+}
+
 // EvalModule 支持CommonJS的模块化支持，获取模块抛出的对象
 func (v *Vesta) EvalModule(jsScript string, res any) *Vesta {
 	jsScript = fmt.Sprintf(`const module={};%s;module.exports`, jsScript)
@@ -567,7 +622,7 @@ func (v *Vesta) Run() error {
 	v.initContext()
 	// 任务执行的超时时间：默认5分钟
 	// 脚本可能是Promise等待超长，又或者远程服务器超慢，这个时候需要设置超时时间
-	ctx, cancel := context.WithTimeout(v.ctx, 5*time.Minute)
+	ctx, cancel := context.WithTimeout(v.ctx, time.Hour*24)
 	defer cancel()
 	//
 	err := chromedp.Run(ctx, v.actions...)
@@ -578,8 +633,7 @@ func (v *Vesta) Run() error {
 // GetValue
 // json 可以直接用结构体接收数据
 func (v *Vesta) Get(jsScript string, res any) *Vesta {
-	err := v.Eval(jsScript, &res)
-	return err
+	return v.Eval(jsScript, &res)
 }
 
 // GetValue
