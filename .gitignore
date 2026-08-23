@@ -21,3 +21,4 @@ pkg/vesta/testdata/**/*
 baidu_pano/data
 testdata
 /cmd/**/chrome-data/*
+vesta-user-data

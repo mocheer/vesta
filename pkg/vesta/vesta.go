@@ -493,12 +493,13 @@ func (v *Vesta) MouseClickXY(x, y float64) *Vesta {
 func (v *Vesta) SaveAllResource(dir string) *Vesta {
 	v.SaveResourceWithFilter(dir, func(url string) bool {
 		return true
-	})
+	}, false)
 	return v
 }
 
 // SaveResourceWithFilter 保存资源，根据filter过滤
-func (v *Vesta) SaveResourceWithFilter(dir string, filter func(url string) bool) *Vesta {
+func (v *Vesta) SaveResourceWithFilter(dir string, filter func(url string) bool, flat bool) *Vesta {
+	count := 0
 	action := chromedp.ActionFunc(func(ctx context.Context) error {
 		// 会有线程安全的问题
 		urlMap := map[network.RequestID]string{}
@@ -533,7 +534,7 @@ func (v *Vesta) SaveResourceWithFilter(dir string, filter func(url string) bool)
 							fmt.Println(err)
 							return
 						}
-						fmt.Println(upath)
+						fmt.Println(count, " ", upath)
 						// 有可能是一个blob:开头的自定义url字符串
 						// 这种自定义字符串其实可以直接过滤，因为每次都不一样
 						// 有一种可能的需求是想要拦截获取最终的blob资源数据，这个时候要另外处理（原始数据可能会加密，直接查看blob数据更清晰）
@@ -545,20 +546,39 @@ func (v *Vesta) SaveResourceWithFilter(dir string, filter func(url string) bool)
 						if err != nil {
 							fmt.Println(err)
 						}
+
 						fname := filepath.Join(dir, uri.Hostname(), uri.Path)
-						// url接口，很多都是相同名称不同参数,这里加上参数名称作为文件名，但如果部署为web服务，这个原始名称反而404
-						if len(uri.RawQuery) > 0 {
-							fname += filepath.Join(fname, url.QueryEscape(uri.RawQuery))
+						if flat {
+							name := filepath.Base(uri.Path)
+							if strings.Contains(upath, "thumbnail") && strings.Contains(upath, "crop") {
+								name = filepath.Join("crop", name)
+							}
+							fname = filepath.Join(dir, name)
+						} else {
+							// url接口，很多都是相同名称不同参数,这里加上参数名称作为文件名，但如果部署为web服务，这个原始名称反而404
+							if len(uri.RawQuery) > 0 {
+								fname += filepath.Join(fname, url.QueryEscape(uri.RawQuery))
+							}
+							// 	TODO 检测内容类型
+							if strings.HasSuffix(fname, "/") {
+								fname += filepath.Join(fname, "index.html")
+							}
 						}
-						// 	TODO 检测内容类型
-						if strings.HasSuffix(fname, "/") {
-							fname += filepath.Join(fname, "index.html")
+
+						if len(data) > 32 {
+							count++
+							if err != nil {
+								return
+							}
+							if !ds.IsExist(fname) {
+								// 保存文件
+								err = ds.Save(fname, data)
+								if err != nil {
+									log.Println(err)
+								}
+							}
 						}
-						//
-						err = ds.Save(fname, data)
-						if err != nil {
-							fmt.Println(err)
-						}
+
 					}
 				}(ev, ctx)
 			case *network.EventWebSocketCreated:
@@ -588,8 +608,11 @@ func (v *Vesta) SaveResourceWithFilter(dir string, filter func(url string) bool)
 // 保存所有图片，只用文件后缀过滤其实不太准确，因为有些图片文件后缀是空的，比如base64编码的图片
 // 有些是根据服务端返回的content-type判断的，比如image/jpeg
 func (v *Vesta) SaveAllImages(dir string) *Vesta {
-	imageSuffix := []string{".jpg", ".png", ".gif", ".avif", ".webp", ".svg", ".ico"}
+	imageSuffix := []string{".jpg", ".png", ".gif", ".avif", ".webp", ".svg", ".ico", ".bmp"}
 	v.SaveResourceWithFilter(dir, func(u string) bool {
+		if strings.Contains(u, "thumbnail") && strings.Contains(u, "crop") {
+			return false
+		}
 		uri, err := url.Parse(u)
 		if err != nil {
 			fmt.Println(err)
@@ -600,7 +623,7 @@ func (v *Vesta) SaveAllImages(dir string) *Vesta {
 			}
 		}
 		return false
-	})
+	}, true)
 	return v
 }
 
@@ -623,9 +646,18 @@ func (v *Vesta) Run() error {
 	// 任务执行的超时时间：默认5分钟
 	// 脚本可能是Promise等待超长，又或者远程服务器超慢，这个时候需要设置超时时间
 	ctx, cancel := context.WithTimeout(v.ctx, time.Hour*24)
-	defer cancel()
+	v.cancels = append(v.cancels, cancel)
 	//
 	err := chromedp.Run(ctx, v.actions...)
+	v.actions = []chromedp.Action{}
+	return err
+}
+
+// Run
+func (v *Vesta) RunWithoutCtx() error {
+	v.initContext()
+	//
+	err := chromedp.Run(v.ctx, v.actions...)
 	v.actions = []chromedp.Action{}
 	return err
 }

@@ -118,7 +118,7 @@ func TestCharonReptile(t *testing.T) {
 func TestSave(t *testing.T) {
 	// vesta.SaveAllResource("https://webshare2.shanhaibi.com/erwkq60victe/")
 	// vesta.SaveAllResource("https://webshare2.shanhaibi.com/hp0hfoh0hxcp/")
-	vesta.SaveAllResource("https://webshare2.shanhaibi.com/db339wa89rho/") //大坝水电站 https://www.shanhaibi.com/market/theme/801.html
+	vesta.SaveAllResource("https://webshare2.shanhaibi.com/db339wa89rho/", "./db339wa89rho") //大坝水电站 https://www.shanhaibi.com/market/theme/801.html
 
 	// vesta.SaveAllResource("http://192.168.118.103:9912/v/studio/login")
 }
