@@ -18,8 +18,8 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/mocheer/pluto/pkg/ds"
+	"github.com/mocheer/pluto/pkg/img"
 	"github.com/mocheer/pluto/pkg/ts/ctp"
-	"github.com/mocheer/pluto/pkg/ts/img"
 )
 
 type Vesta struct {
