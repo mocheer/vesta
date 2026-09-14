@@ -3,7 +3,7 @@ package zcode
 import (
 	"fmt"
 
-	"github.com/mocheer/pluto/pkg/ts/clock"
+	"github.com/mocheer/pluto/pkg/clock"
 	"github.com/mocheer/vesta/pkg/localdb"
 	"github.com/mocheer/vesta/pkg/vesta"
 )
